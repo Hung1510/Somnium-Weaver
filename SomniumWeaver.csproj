@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>SomniumWeaver</AssemblyName>
+    <RootNamespace>SomniumWeaver</RootNamespace>
+    <Version>0.3.0</Version>
+    <Authors>Hung1510</Authors>
+    <Description>A particle-based tapestry that weaves your machine's vitals into light.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 2D rendering. SKElement (not SKGLElement) so we get per-pixel window transparency. -->
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <PackageReference Include="SkiaSharp.Views.WPF" Version="2.88.9" />
+    <!-- correct package for PerformanceCounter on .NET 8 (NOT System.Management, that's WMI) -->
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.1" />
+    <!-- wasapi loopback capture + fft for audio-reactive mode -->
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+
+</Project>

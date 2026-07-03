@@ -1,0 +1,158 @@
+<Window x:Class="SomniumWeaver.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:skia="clr-namespace:SkiaSharp.Views.WPF;assembly=SkiaSharp.Views.WPF"
+        Title="Somnium Weaver"
+        Width="900" Height="600"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="True"
+        WindowStartupLocation="CenterScreen"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+
+    <Window.Resources>
+        <!-- tiny translucent toolbar button -->
+        <Style x:Key="ToolButton" TargetType="Button">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Margin" Value="2,0,0,0"/>
+            <Setter Property="Foreground" Value="#DCF7FF"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontFamily" Value="Segoe UI Symbol"/>
+            <Setter Property="Background" Value="#22FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="5">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#552FBFB3"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- settings panel styles -->
+        <Style x:Key="PanelText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#DCF7FF"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,9,0,2"/>
+        </Style>
+        <Style x:Key="PanelCheck" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#DCF7FF"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,6,0,0"/>
+        </Style>
+        <Style x:Key="PanelRadio" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#DCF7FF"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,14,0"/>
+        </Style>
+        <Style x:Key="PanelButton" TargetType="Button">
+            <Setter Property="Foreground" Value="#DCF7FF"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Background" Value="#33FFFFFF"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="6" Padding="12,6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#552FBFB3"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <!-- the tapestry -->
+        <skia:SKElement x:Name="Canvas" PaintSurface="OnPaintSurface"/>
+
+        <!-- top-right controls -->
+        <Border x:Name="Toolbar"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,8,8,0"
+                Padding="4"
+                CornerRadius="8"
+                Background="#40101820">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="BtnPlay"   Style="{StaticResource ToolButton}" Click="BtnPlay_Click"   ToolTip="Start / Stop  (Ctrl+Alt+Space)"      Content="&#9199;"/>
+                <Button x:Name="BtnDebug"  Style="{StaticResource ToolButton}" Click="BtnDebug_Click"  ToolTip="Toggle HUD  (Ctrl+Alt+D)"            Content="&#128065;"/>
+                <Button x:Name="BtnAudio"  Style="{StaticResource ToolButton}" Click="BtnAudio_Click"  ToolTip="Audio-reactive mode  (Ctrl+Alt+A)"   Content="&#9835;"/>
+                <Button x:Name="BtnPin"    Style="{StaticResource ToolButton}" Click="BtnPin_Click"    ToolTip="Always on top"                        Content="&#128204;"/>
+                <Button x:Name="BtnGhost"  Style="{StaticResource ToolButton}" Click="BtnGhost_Click"  ToolTip="Click-through overlay  (Ctrl+Alt+S)"  Content="&#128123;"/>
+                <Button x:Name="BtnSettings" Style="{StaticResource ToolButton}" Click="BtnSettings_Click" ToolTip="Settings  (Ctrl+Alt+O)"             Content="&#9881;"/>
+                <Button x:Name="BtnClose"  Style="{StaticResource ToolButton}" Click="BtnClose_Click"  ToolTip="Quit  (Ctrl+Alt+Q)"                   Content="&#10005;"/>
+            </StackPanel>
+        </Border>
+
+        <!-- settings panel (hidden until the gear is pressed) -->
+        <Border x:Name="SettingsPanel"
+                Visibility="Collapsed"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Width="350" Padding="20"
+                CornerRadius="12"
+                Background="#F00B121C"
+                BorderBrush="#552FBFB3" BorderThickness="1"
+                MouseLeftButtonDown="SettingsPanel_MouseDown">
+            <StackPanel>
+                <TextBlock Text="somnium weaver — settings"
+                           Foreground="#9BF6FF" FontFamily="Segoe UI" FontSize="15"
+                           FontWeight="SemiBold" Margin="0,0,0,6"/>
+
+                <TextBlock Style="{StaticResource PanelText}" Text="render quality"/>
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="RbLow"    Style="{StaticResource PanelRadio}" GroupName="Quality" Content="low"    Checked="Quality_Checked"/>
+                    <RadioButton x:Name="RbMedium" Style="{StaticResource PanelRadio}" GroupName="Quality" Content="medium" Checked="Quality_Checked"/>
+                    <RadioButton x:Name="RbHigh"   Style="{StaticResource PanelRadio}" GroupName="Quality" Content="high"   Checked="Quality_Checked"/>
+                </StackPanel>
+
+                <CheckBox x:Name="ChkDebug" Style="{StaticResource PanelCheck}" Content="show HUD (cpu / ram / fps)" Click="ChkDebug_Click"/>
+                <CheckBox x:Name="ChkLines" Style="{StaticResource PanelCheck}" Content="constellation lines"         Click="ChkLines_Click"/>
+                <CheckBox x:Name="ChkAudio" Style="{StaticResource PanelCheck}" Content="audio-reactive mode"         Click="ChkAudio_Click"/>
+                <CheckBox x:Name="ChkTop"   Style="{StaticResource PanelCheck}" Content="always on top"              Click="ChkTop_Click"/>
+
+                <TextBlock x:Name="LblEmit" Style="{StaticResource PanelText}" Text="emission rate"/>
+                <Slider x:Name="SldEmit" Minimum="0.5" Maximum="5.0" ValueChanged="SldEmit_Changed"/>
+
+                <TextBlock x:Name="LblMax" Style="{StaticResource PanelText}" Text="max particles"/>
+                <Slider x:Name="SldMax" Minimum="500" Maximum="5000" ValueChanged="SldMax_Changed"/>
+
+                <TextBlock x:Name="LblFps" Style="{StaticResource PanelText}" Text="target fps"/>
+                <Slider x:Name="SldFps" Minimum="30" Maximum="144" ValueChanged="SldFps_Changed"/>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                    <Button Style="{StaticResource PanelButton}" Content="reset defaults" Click="BtnReset_Click" Margin="0,0,8,0"/>
+                    <Button Style="{StaticResource PanelButton}" Content="done"           Click="BtnDone_Click"/>
+                </StackPanel>
+
+                <TextBlock Foreground="#667788" FontFamily="Segoe UI" FontSize="10"
+                           Margin="0,12,0,0" TextWrapping="Wrap"
+                           Text="changes apply live and save when you close this panel. saved to %AppData%\SomniumWeaver\settings.json"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

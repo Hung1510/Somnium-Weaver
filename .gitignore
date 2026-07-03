@@ -1,0 +1,18 @@
+# build output
+bin/
+obj/
+out/
+
+# vs / rider / vscode
+.vs/
+.idea/
+*.user
+*.suo
+.vscode/
+
+# publish
+publish/
+*.zip
+
+# local settings dumps (the app writes to %AppData%, not here, but just in case)
+settings.json
