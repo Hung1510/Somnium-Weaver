@@ -6,6 +6,8 @@ namespace SomniumWeaver.Services;
 
 public enum QualityLevel { Low, Medium, High }
 
+public enum AnomalyEngineKind { ZScore, Autoencoder }
+
 /// <summary>everything the user can tweak, serialized to json in %AppData%.</summary>
 public sealed class Settings
 {
@@ -14,6 +16,11 @@ public sealed class Settings
     public bool ClickThrough { get; set; } = false;
     public bool ConstellationLines { get; set; } = true;
     public bool AudioReactive { get; set; } = false;
+    public bool EnableHardwareSensors { get; set; } = true;  // LibreHardwareMonitor (gpu/temps)
+    public bool WallpaperMode { get; set; } = false;          // render behind desktop icons
+    public float AnomalyThreshold { get; set; } = 3.0f;       // z-score sigma to trigger a burst
+    public AnomalyEngineKind AnomalyEngine { get; set; } = AnomalyEngineKind.ZScore;
+    public bool LogTelemetryCsv { get; set; } = false;        // append vitals to a csv (for retraining)
     public QualityLevel Quality { get; set; } = QualityLevel.Medium;
 
     public int MaxParticles { get; set; } = 5000;

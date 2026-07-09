@@ -33,6 +33,11 @@ public partial class MainWindow : Window
     // events don't write back (or fire against un-init state during XAML load).
     private bool _loadingSettings = true;
 
+    // wallpaper-mode state (remember overlay placement so we can restore it on exit)
+    private bool _wallpaper;
+    private double _preWallLeft, _preWallTop, _preWallW, _preWallH;
+    private static readonly SKColor WallpaperBg = new(0x06, 0x0A, 0x12, 0xFF); // opaque near-black
+
     // reused HUD paint
     private readonly SKPaint _hudPaint = new()
     {
@@ -46,7 +51,7 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         _settings = SettingsService.Load();
-        _collector = new DataCollector();
+        _collector = new DataCollector(_settings);
         _system = new ParticleSystem(_settings);
         _audio = new AudioAnalyzer();
 
@@ -135,9 +140,27 @@ public partial class MainWindow : Window
             $"CPU  {m.CpuPercent,5:0.0} %",
             $"RAM  {m.AvailableRamMb,6:0} MB free  ({m.MemoryLoad * 100f,4:0} %)",
             $"NET  {m.NetworkKBps,7:0.0} KB/s",
-            $"MOT  {_system.Count,5} particles",
-            $"FPS  {_fps,5:0.0}",
         };
+
+        if (m.HasGpu)
+        {
+            string gt = m.HasGpuTemp ? $"  {m.GpuTempC,4:0} \u00B0C" : "";
+            lines.Add($"GPU  {m.GpuLoadPercent,5:0.0} %{gt}");
+        }
+        if (m.HasVram)
+            lines.Add($"VRAM {m.VramUsedMb,6:0} / {m.VramTotalMb,0:0} MB");
+        if (m.HasCpuTemp)
+            lines.Add($"TEMP cpu {m.CpuTempC,4:0} \u00B0C");
+        if (m.HasFan)
+            lines.Add($"FAN  {m.FanRpm,6:0} rpm");
+
+        lines.Add($"MOT  {_system.Count,5} particles");
+        lines.Add($"FPS  {_fps,5:0.0}");
+
+        // anomaly detector readout (score in sigma; flags the driving signal on an event)
+        string flag = m.IsAnomaly ? "  <ANOMALY>" : "";
+        string sig = string.IsNullOrEmpty(m.AnomalySignal) ? "" : $"  [{m.AnomalySignal}]";
+        lines.Add($"ANOM {m.AnomalyScore,5:0.0} \u03C3  {_collector.AnomalyEngineName}{sig}{flag}");
 
         if (_settings.AudioReactive)
         {
@@ -165,6 +188,7 @@ public partial class MainWindow : Window
     private void BtnAudio_Click(object sender, RoutedEventArgs e) => ToggleAudio();
     private void BtnPin_Click(object sender, RoutedEventArgs e) => ToggleAlwaysOnTop();
     private void BtnGhost_Click(object sender, RoutedEventArgs e) => SetClickThrough(true);
+    private void BtnWallpaper_Click(object sender, RoutedEventArgs e) => ToggleWallpaper();
     private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
 
     private void ToggleAudio()
@@ -180,6 +204,51 @@ public partial class MainWindow : Window
     {
         var size = Canvas.CanvasSize;
         _system.TriggerButterflyBurst(size.Width * 0.5f, size.Height * 0.5f);
+    }
+
+    // ------------------------------------------------------------- wallpaper mode
+
+    private void ToggleWallpaper()
+    {
+        if (_wallpaper) ExitWallpaper();
+        else EnterWallpaper();
+    }
+
+    private void EnterWallpaper()
+    {
+        if (_wallpaper || _hwnd == IntPtr.Zero) return;
+        _wallpaper = true;
+        _settings.WallpaperMode = true;
+
+        // remember overlay placement to restore later
+        _preWallLeft = Left; _preWallTop = Top; _preWallW = Width; _preWallH = Height;
+
+        if (_settings.ClickThrough) SetClickThrough(false); // irrelevant behind icons
+        Topmost = false;
+        ShowInTaskbar = false;
+        Toolbar.Visibility = Visibility.Collapsed;
+        SettingsPanel.Visibility = Visibility.Collapsed;
+        _system.Background = WallpaperBg;                    // opaque -> reliable in WorkerW
+
+        WallpaperMode.Enable(_hwnd);                         // reparent + fill the screen
+    }
+
+    private void ExitWallpaper()
+    {
+        if (!_wallpaper) return;
+        _wallpaper = false;
+        _settings.WallpaperMode = false;
+
+        WallpaperMode.Disable(_hwnd);                        // detach from WorkerW
+
+        _system.Background = SKColors.Transparent;
+        Topmost = _settings.AlwaysOnTop;
+        ShowInTaskbar = true;
+        Toolbar.Visibility = Visibility.Visible;
+
+        // restore the floating overlay's size/position
+        Left = _preWallLeft; Top = _preWallTop;
+        Width = _preWallW; Height = _preWallH;
     }
 
     private void ToggleCollection()
@@ -259,11 +328,15 @@ public partial class MainWindow : Window
         ChkDebug.IsChecked = _settings.ShowDebug;
         ChkLines.IsChecked = _settings.ConstellationLines;
         ChkAudio.IsChecked = _settings.AudioReactive;
+        ChkHw.IsChecked = _settings.EnableHardwareSensors;
+        ChkOnnx.IsChecked = _settings.AnomalyEngine == AnomalyEngineKind.Autoencoder;
+        ChkTelem.IsChecked = _settings.LogTelemetryCsv;
         ChkTop.IsChecked = _settings.AlwaysOnTop;
 
         SldEmit.Value = _settings.EmissionMultiplier;
         SldMax.Value = _settings.MaxParticles;
         SldFps.Value = _settings.TargetFps;
+        SldAnom.Value = _settings.AnomalyThreshold;
 
         UpdateSliderLabels();
         _loadingSettings = false;
@@ -274,6 +347,7 @@ public partial class MainWindow : Window
         LblEmit.Text = $"emission rate  ({_settings.EmissionMultiplier:0.0}\u00D7 per %cpu)";
         LblMax.Text = $"max particles  ({_settings.MaxParticles})";
         LblFps.Text = $"target fps  ({_settings.TargetFps})";
+        LblAnom.Text = $"anomaly threshold  ({_settings.AnomalyThreshold:0.0}\u03C3 \u2014 lower = more bursts)";
     }
 
     private void Quality_Checked(object sender, RoutedEventArgs e)
@@ -306,6 +380,27 @@ public partial class MainWindow : Window
         RefreshToolbar();
     }
 
+    private void ChkHw_Click(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+        // the collector opens/closes LibreHardwareMonitor on its next tick based on this flag.
+        _settings.EnableHardwareSensors = ChkHw.IsChecked == true;
+    }
+
+    private void ChkOnnx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+        // the collector hot-swaps engines on its next tick (falls back to z-score if no model).
+        _settings.AnomalyEngine = ChkOnnx.IsChecked == true
+            ? AnomalyEngineKind.Autoencoder : AnomalyEngineKind.ZScore;
+    }
+
+    private void ChkTelem_Click(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+        _settings.LogTelemetryCsv = ChkTelem.IsChecked == true;
+    }
+
     private void ChkTop_Click(object sender, RoutedEventArgs e)
     {
         if (_loadingSettings) return;
@@ -335,6 +430,13 @@ public partial class MainWindow : Window
         UpdateSliderLabels();
     }
 
+    private void SldAnom_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_loadingSettings) return;
+        _settings.AnomalyThreshold = (float)Math.Round(e.NewValue, 1);
+        UpdateSliderLabels();
+    }
+
     private void BtnReset_Click(object sender, RoutedEventArgs e)
     {
         var d = new Settings(); // defaults
@@ -345,10 +447,14 @@ public partial class MainWindow : Window
         _settings.ShowDebug = d.ShowDebug;
         _settings.ConstellationLines = d.ConstellationLines;
         _settings.AudioReactive = d.AudioReactive;
+        _settings.EnableHardwareSensors = d.EnableHardwareSensors;
+        _settings.AnomalyEngine = d.AnomalyEngine;
+        _settings.LogTelemetryCsv = d.LogTelemetryCsv;
         _settings.AlwaysOnTop = d.AlwaysOnTop;
         _settings.EmissionMultiplier = d.EmissionMultiplier;
         _settings.MaxParticles = d.MaxParticles;
         _settings.TargetFps = d.TargetFps;
+        _settings.AnomalyThreshold = d.AnomalyThreshold;
 
         // apply side effects that aren't polled every frame
         Topmost = _settings.AlwaysOnTop;
@@ -394,9 +500,11 @@ public partial class MainWindow : Window
         RegisterHotKey(_hwnd, Hk_Audio, MOD_CONTROL | MOD_ALT, VK_A);
         RegisterHotKey(_hwnd, Hk_Burst, MOD_CONTROL | MOD_ALT, VK_B);
         RegisterHotKey(_hwnd, Hk_Settings, MOD_CONTROL | MOD_ALT, VK_O);
+        RegisterHotKey(_hwnd, Hk_Wall, MOD_CONTROL | MOD_ALT, VK_W);
         RegisterHotKey(_hwnd, Hk_Quit,  MOD_CONTROL | MOD_ALT, VK_Q);
 
         if (_settings.ClickThrough) SetClickThrough(true);
+        if (_settings.WallpaperMode) EnterWallpaper();
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -411,6 +519,7 @@ public partial class MainWindow : Window
                 case Hk_Audio: ToggleAudio();      handled = true; break;
                 case Hk_Burst: ManualBurst();      handled = true; break;
                 case Hk_Settings: ToggleSettings(); handled = true; break;
+                case Hk_Wall:  ToggleWallpaper();   handled = true; break;
                 case Hk_Quit:  Close();            handled = true; break;
             }
         }
@@ -421,11 +530,19 @@ public partial class MainWindow : Window
     {
         CompositionTarget.Rendering -= OnRendering;
 
-        // remember placement
-        _settings.WindowLeft = Left;
-        _settings.WindowTop = Top;
-        _settings.WindowWidth = Width;
-        _settings.WindowHeight = Height;
+        if (_wallpaper) WallpaperMode.Disable(_hwnd); // detach cleanly before teardown
+
+        // remember placement (use pre-wallpaper values if we're in wallpaper mode)
+        if (_wallpaper)
+        {
+            _settings.WindowLeft = _preWallLeft; _settings.WindowTop = _preWallTop;
+            _settings.WindowWidth = _preWallW; _settings.WindowHeight = _preWallH;
+        }
+        else
+        {
+            _settings.WindowLeft = Left; _settings.WindowTop = Top;
+            _settings.WindowWidth = Width; _settings.WindowHeight = Height;
+        }
         SettingsService.Save(_settings);
 
         if (_hwnd != IntPtr.Zero)
@@ -436,6 +553,7 @@ public partial class MainWindow : Window
             UnregisterHotKey(_hwnd, Hk_Audio);
             UnregisterHotKey(_hwnd, Hk_Burst);
             UnregisterHotKey(_hwnd, Hk_Settings);
+            UnregisterHotKey(_hwnd, Hk_Wall);
             UnregisterHotKey(_hwnd, Hk_Quit);
         }
 
@@ -455,10 +573,10 @@ public partial class MainWindow : Window
     private const int WM_HOTKEY = 0x0312;
     private const uint MOD_ALT = 0x0001;
     private const uint MOD_CONTROL = 0x0002;
-    private const uint VK_S = 0x53, VK_D = 0x44, VK_Q = 0x51, VK_SPACE = 0x20, VK_A = 0x41, VK_B = 0x42, VK_O = 0x4F;
+    private const uint VK_S = 0x53, VK_D = 0x44, VK_Q = 0x51, VK_SPACE = 0x20, VK_A = 0x41, VK_B = 0x42, VK_O = 0x4F, VK_W = 0x57;
 
     private const int Hk_Ghost = 9001, Hk_Debug = 9002, Hk_Play = 9003,
-                      Hk_Quit = 9004, Hk_Audio = 9005, Hk_Burst = 9006, Hk_Settings = 9007;
+                      Hk_Quit = 9004, Hk_Audio = 9005, Hk_Burst = 9006, Hk_Settings = 9007, Hk_Wall = 9008;
 
     [DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
     [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);

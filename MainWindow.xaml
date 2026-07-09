@@ -104,6 +104,7 @@
                 <Button x:Name="BtnAudio"  Style="{StaticResource ToolButton}" Click="BtnAudio_Click"  ToolTip="Audio-reactive mode  (Ctrl+Alt+A)"   Content="&#9835;"/>
                 <Button x:Name="BtnPin"    Style="{StaticResource ToolButton}" Click="BtnPin_Click"    ToolTip="Always on top"                        Content="&#128204;"/>
                 <Button x:Name="BtnGhost"  Style="{StaticResource ToolButton}" Click="BtnGhost_Click"  ToolTip="Click-through overlay  (Ctrl+Alt+S)"  Content="&#128123;"/>
+                <Button x:Name="BtnWallpaper" Style="{StaticResource ToolButton}" Click="BtnWallpaper_Click" ToolTip="Wallpaper mode - behind icons  (Ctrl+Alt+W)" Content="&#128444;"/>
                 <Button x:Name="BtnSettings" Style="{StaticResource ToolButton}" Click="BtnSettings_Click" ToolTip="Settings  (Ctrl+Alt+O)"             Content="&#9881;"/>
                 <Button x:Name="BtnClose"  Style="{StaticResource ToolButton}" Click="BtnClose_Click"  ToolTip="Quit  (Ctrl+Alt+Q)"                   Content="&#10005;"/>
             </StackPanel>
@@ -133,6 +134,9 @@
                 <CheckBox x:Name="ChkDebug" Style="{StaticResource PanelCheck}" Content="show HUD (cpu / ram / fps)" Click="ChkDebug_Click"/>
                 <CheckBox x:Name="ChkLines" Style="{StaticResource PanelCheck}" Content="constellation lines"         Click="ChkLines_Click"/>
                 <CheckBox x:Name="ChkAudio" Style="{StaticResource PanelCheck}" Content="audio-reactive mode"         Click="ChkAudio_Click"/>
+                <CheckBox x:Name="ChkHw"    Style="{StaticResource PanelCheck}" Content="hardware sensors (gpu / temps / fans)" Click="ChkHw_Click"/>
+                <CheckBox x:Name="ChkOnnx"  Style="{StaticResource PanelCheck}" Content="ONNX autoencoder anomaly model"    Click="ChkOnnx_Click"/>
+                <CheckBox x:Name="ChkTelem" Style="{StaticResource PanelCheck}" Content="log telemetry to csv (for retraining)" Click="ChkTelem_Click"/>
                 <CheckBox x:Name="ChkTop"   Style="{StaticResource PanelCheck}" Content="always on top"              Click="ChkTop_Click"/>
 
                 <TextBlock x:Name="LblEmit" Style="{StaticResource PanelText}" Text="emission rate"/>
@@ -143,6 +147,9 @@
 
                 <TextBlock x:Name="LblFps" Style="{StaticResource PanelText}" Text="target fps"/>
                 <Slider x:Name="SldFps" Minimum="30" Maximum="144" ValueChanged="SldFps_Changed"/>
+
+                <TextBlock x:Name="LblAnom" Style="{StaticResource PanelText}" Text="anomaly threshold"/>
+                <Slider x:Name="SldAnom" Minimum="2.0" Maximum="5.0" ValueChanged="SldAnom_Changed"/>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
                     <Button Style="{StaticResource PanelButton}" Content="reset defaults" Click="BtnReset_Click" Margin="0,0,8,0"/>

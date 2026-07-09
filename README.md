@@ -20,10 +20,12 @@ monitor until the butterflies tell you something just woke your cpu up.
 | signal            | what it does                                              |
 |-------------------|----------------------------------------------------------|
 | cpu %             | emission rate. more load -> more motes, shifted to bright cyan |
+| gpu %             | emission rate too (0.75 weight) -> launch a game and the field surges |
 | ram pressure      | drift speed. tighter memory -> faster rising motes         |
+| cpu / gpu temp    | palette warmth. hotter -> motes bleed from cyan toward amber |
 | network KB/s      | shown on the HUD (drives a future renderer, see roadmap)  |
-| cpu > 80% or < 15%| butterfly burst -> 30 gold/pink motes spiral out for ~2s   |
-| **audio (opt-in)**| **motes react to system sound: bass swells them, loudness speeds them, treble brightens, and detected beats fire butterfly bursts** |
+| **learned anomaly** | **butterfly burst -> 30 gold/pink motes spiral out. fires when any vital deviates from what's normal *for this machine* (see below), not a fixed threshold** |
+| **audio (opt-in)**| motes react to system sound: bass swells them, loudness speeds them, treble brightens, and detected beats fire bursts |
 
 ## controls
 
@@ -36,6 +38,7 @@ toolbar (top-right) and global hotkeys:
 | audio-reactive mode | ctrl+alt+a        |
 | butterfly burst     | ctrl+alt+b        |
 | click-through on/off| ctrl+alt+s        |
+| wallpaper mode      | ctrl+alt+w        |
 | settings panel      | ctrl+alt+o        |
 | quit                | ctrl+alt+q        |
 
@@ -66,6 +69,65 @@ dotnet publish -c Release -r win-x64 --self-contained true ^
 
 pushing a `v*` tag runs `.github/workflows/release.yml`, which does exactly this on a
 windows runner and attaches the zip to a github release.
+
+## hardware sensors
+
+beyond cpu/ram/net (which come from windows performance counters), the app pulls real
+sensors via **[LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)**
+(MPL-2.0) — gpu load/temp, cpu package temp, per-core load, vram, fan rpm. that's what
+drives the game-surge emission and the temperature-warmed palette, and it gives the
+anomaly detector a richer signal vector to learn from. everything shows on the HUD.
+
+> **admin caveat:** LibreHardwareMonitor loads a ring0 driver to read some sensors —
+> **cpu package temperature in particular needs administrator**. without elevation you'll
+> still get gpu load/temp and ram, but cpu temp comes back blank. run the exe as admin to
+> unlock it (or flip the manifest to `requireAdministrator` to always elevate). the app
+> degrades per-sensor, so nothing breaks either way. toggle the whole thing off in settings
+> if you don't want it.
+
+## wallpaper mode
+
+press **⃞** in the toolbar or **ctrl+alt+w** to drop the tapestry *behind* your desktop
+icons — animated wallpaper instead of a floating overlay. it uses the classic Progman /
+`WorkerW` `SetParent` trick (with a Progman fallback for the Windows builds that lay the
+desktop out differently). in this mode it fills the screen on an opaque dark background
+(which also sidesteps a layered-transparency quirk that can black out reparented windows),
+hides the toolbar, and drops always-on-top. toggle it off with the same hotkey — the
+floating overlay comes back exactly where it was. the choice persists across launches.
+
+## anomaly detection (the butterfly trigger)
+
+the bursts used to fire on a dumb `cpu > 80%` line. now they fire on a **learned anomaly**.
+two interchangeable engines, both fed the same multi-signal vector (cpu, ram, net, gpu,
+cpu/gpu temp):
+
+- **z-score** (default, no model) — per-signal exponentially-weighted mean + variance;
+  score is the max |z| across signals. adapts to *your* machine's normal continuously.
+- **autoencoder** (ONNX, opt-in) — a small autoencoder trained on standardized "normal"
+  telemetry. it learns the *shape* of normal cross-signal correlations, so it catches things
+  a per-signal z-score can't — e.g. temperature high while load is normal. reconstruction
+  error is the anomaly score. runs on ONNX Runtime; if the model file is missing it silently
+  falls back to z-score. the HUD shows which engine is live.
+
+both standardize each signal online (per-feature EWMA), which is the trick that lets one
+autoencoder work on any machine: it only ever sees ~N(0,1) inputs regardless of your
+hardware. tune with the "anomaly threshold" slider (sigma; lower = more bursts).
+
+### training / retraining the model
+
+the shipped `model/anomaly_autoencoder.onnx` is trained on synthetic correlated data — good
+enough to demo, but the real win is retraining on *your* machine:
+
+1. enable **"log telemetry to csv"** in settings and use the machine normally for a while.
+   it writes `%AppData%\SomniumWeaver\telemetry.csv`.
+2. `python ml/train_autoencoder.py "%AppData%\SomniumWeaver\telemetry.csv"`
+   (needs `pip install numpy onnx`). it retrains and overwrites the model + metadata.
+3. restart — the autoencoder now knows *your* normal.
+
+the whole training pipeline is one dependency-light script (numpy for the net, onnx for
+export — no torch). the natural next step is a deeper model or an isolation forest; the C#
+inference path (`OnnxAutoencoderEngine.cs`) stays the same as long as it's an autoencoder
+that reconstructs the signal vector.
 
 ## audio-reactive mode
 
@@ -130,11 +192,18 @@ App.xaml(.cs)             entry point
 MainWindow.xaml(.cs)      window, render loop, HUD, hotkeys, click-through
 Models/Particle.cs        the mote data model
 Models/ParticleSystem.cs  the engine: pooling, emission, bursts, lines, audio, draw
-Services/DataCollector.cs cpu/ram/net perf counters (with first-read priming)
-Services/Metrics.cs       immutable vitals snapshot
+Services/DataCollector.cs cpu/ram/net counters + owns the sensor + anomaly sources
+Services/Metrics.cs       immutable vitals snapshot (perf counters + sensors + anomaly)
+Services/HardwareMonitor.cs  LibreHardwareMonitor wrapper -> gpu/temp/vram/fan sensors
+Services/IAnomalyEngine.cs   pluggable anomaly-engine interface + AnomalyResult
+Services/AnomalyDetector.cs  z-score engine (online EWMA, no deps)
+Services/OnnxAutoencoderEngine.cs  autoencoder engine over ONNX Runtime
 Services/AudioAnalyzer.cs wasapi loopback capture + fft -> normalized bands + beats
 Services/AudioFrame.cs    immutable audio snapshot
+Services/WallpaperMode.cs Progman/WorkerW reparenting for behind-the-icons rendering
 Services/SettingsService.cs  json persistence
+ml/train_autoencoder.py   trains + exports the anomaly autoencoder (numpy + onnx)
+model/                    shipped anomaly_autoencoder.onnx + anomaly_meta.json
 docs/DEMO.md              how to record the demo gif
 ```
 
@@ -144,9 +213,11 @@ these are the fun ones if you want to fork and contribute:
 
 - **spatial-grid for constellation lines** — the link pass is naive O(n²), gated at 600
   motes. a uniform grid would let lines run at the full 5000 cap. (`ParticleSystem.DrawConnections`)
-- **network renderer** — net throughput is collected + shown but not yet visualized.
-  ribbons or a pulse-on-spike would be lovely.
-- **more emitters** — disk i/o, gpu load (via nvml/`nvidia-smi`), battery.
+- **multi-monitor wallpaper** — wallpaper mode fills the primary WorkerW; spanning all
+  monitors (or per-monitor instances) would be a nice extension.
+- **deeper anomaly model** — the autoencoder is a 6-4-2-4-6 toy. a bigger net, an isolation
+  forest, or a temporal model (LSTM/temporal-conv over a window) would sharpen it.
+- **network + vram renderers** — both are collected and shown on the HUD but not yet drawn.
 - **spectrum renderer for audio** — audio-reactive mode ships, but only drives the mote
   field. a proper per-bin bar/wave renderer off the same fft would be a great addition.
 - **theme packs** — swap the palette for other characters/aesthetics via json.
@@ -155,6 +226,9 @@ these are the fun ones if you want to fork and contribute:
 ## credits
 
 - rendering: [skiasharp](https://github.com/mono/SkiaSharp)
+- hardware sensors: [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) (MPL-2.0)
+- audio capture + fft: [NAudio](https://github.com/naudio/NAudio)
+- anomaly inference: [ONNX Runtime](https://github.com/microsoft/onnxruntime)
 - prior art / patterns: [spectrumnet](https://github.com/diqezit/SpectrumNet) (object pooling, overlay mode, hotkeys, fps limiting)
 - vibe: shorekeeper, *wuthering waves* (kuro games). no game assets are shipped here — this is pure procedural light.
 

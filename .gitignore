@@ -14,5 +14,9 @@ out/
 publish/
 *.zip
 
+# python (training script)
+__pycache__/
+*.pyc
+
 # local settings dumps (the app writes to %AppData%, not here, but just in case)
 settings.json

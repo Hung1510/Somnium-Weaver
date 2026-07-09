@@ -1,0 +1,14 @@
+{
+  "features": [
+    "cpu",
+    "ram",
+    "net",
+    "gpu",
+    "cpu-temp",
+    "gpu-temp"
+  ],
+  "alpha": 0.05,
+  "threshold": 1.4385041707762494,
+  "input_name": "input",
+  "note": "reconstruction-error autoencoder over online-standardized signals"
+}

@@ -14,6 +14,7 @@ public sealed class ParticleSystem
     private const uint BrightCyan = 0x9BF6FF;
     private const uint Gold       = 0xFFD700;
     private const uint Pink       = 0xFF69B4;
+    private const uint WarmAmber  = 0xFF9E3D;  // motes warm toward this as temps climb
 
     // -- tuning --
     private const float ConnectDistance = 92f;   // px, constellation link range
@@ -27,6 +28,9 @@ public sealed class ParticleSystem
 
     private readonly Settings _settings;
     private readonly Random _rng = new();
+
+    /// <summary>canvas clear color. transparent for the floating overlay; opaque in wallpaper mode.</summary>
+    public SKColor Background = SKColors.Transparent;
 
     private readonly List<Particle> _active = new(1024);
     private readonly Stack<Particle> _pool = new(1024);
@@ -49,7 +53,9 @@ public sealed class ParticleSystem
     private float _emitAccum;
     private float _time;
     private float _burstTimer;
-    private float _prevCpu;
+
+    private Metrics _m;               // current snapshot, for spawn-time signal reads
+    private DateTime _lastAnomalyTs;  // dedupe: the 2Hz snapshot repeats across ~30 render frames
 
     // audio-reactive state (fed from the ui thread each frame before Update)
     private Services.AudioFrame _audio = Services.AudioFrame.Silent;
@@ -72,6 +78,7 @@ public sealed class ParticleSystem
     public void Update(float dt, Metrics m, float width, float height)
     {
         if (dt <= 0f || width <= 0f || height <= 0f) return;
+        _m = m;
         _time += dt;
         _burstTimer += dt;
         _audioBurstTimer += dt;
@@ -80,8 +87,6 @@ public sealed class ParticleSystem
         HandleAnomaly(m, width, height);
         HandleAudioBeat(width, height);
         Advance(dt, height);
-
-        _prevCpu = m.CpuPercent;
     }
 
     private void HandleAudioBeat(float width, float height)
@@ -96,6 +101,10 @@ public sealed class ParticleSystem
     {
         // emission rate scales with cpu: rate = cpu% * multiplier (particles/sec).
         float rate = m.CpuPercent * _settings.EmissionMultiplier;
+
+        // gpu load feeds in too (at 0.75 weight) -> launch a game and the field surges.
+        if (m.HasGpu)
+            rate += m.GpuLoadPercent * _settings.EmissionMultiplier * 0.75f;
 
         // audio-reactive mode adds a music-driven stream so it comes alive even at idle cpu.
         if (_audioOn)
@@ -141,20 +150,24 @@ public sealed class ParticleSystem
         // hotter cpu (or brighter treble) -> shift the mote toward bright cyan.
         float t = Math.Clamp(cpu / 100f, 0f, 1f);
         if (_audioOn) t = MathF.Max(t, _audio.Treble);
-        p.Color = LerpRgb(CalmTeal, BrightCyan, t);
+        uint col = LerpRgb(CalmTeal, BrightCyan, t);
+
+        // rising temperatures bleed the palette toward warm amber (heat = warmth).
+        float thermal = _m.ThermalLoad;
+        if (thermal > 0f) col = LerpRgb(col, WarmAmber, thermal * 0.6f);
+        p.Color = col;
 
         _active.Add(p);
     }
 
     private void HandleAnomaly(Metrics m, float width, float height)
     {
-        // a "spike" = cpu crossing INTO an extreme band (not merely sitting there),
-        // rate-limited by a cooldown so we don't machine-gun bursts.
-        bool crossedHigh = _prevCpu <= 80f && m.CpuPercent > 80f;
-        bool crossedLow  = _prevCpu >= 15f && m.CpuPercent < 15f;
-
-        if ((crossedHigh || crossedLow) && _burstTimer >= BurstCooldown)
+        // the detector (running at the 2Hz sample cadence) decides what's anomalous for
+        // THIS machine -- no hardcoded thresholds. IsAnomaly is a one-shot pulse, but the
+        // same snapshot is read across ~30 render frames, so dedupe on the timestamp.
+        if (m.IsAnomaly && m.Timestamp != _lastAnomalyTs && _burstTimer >= BurstCooldown)
         {
+            _lastAnomalyTs = m.Timestamp;
             _burstTimer = 0f;
             TriggerButterflyBurst(width * 0.5f, height * 0.5f);
         }
@@ -229,8 +242,8 @@ public sealed class ParticleSystem
 
     public void Draw(SKCanvas canvas)
     {
-        // transparent wipe -> the desktop shows through.
-        canvas.Clear(SKColors.Transparent);
+        // transparent wipe for the overlay; opaque dark in wallpaper mode.
+        canvas.Clear(Background);
 
         bool glow = _settings.Quality == QualityLevel.High;
 

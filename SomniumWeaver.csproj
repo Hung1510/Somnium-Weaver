@@ -9,7 +9,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>SomniumWeaver</AssemblyName>
     <RootNamespace>SomniumWeaver</RootNamespace>
-    <Version>0.3.0</Version>
+    <Version>0.5.0</Version>
     <Authors>Hung1510</Authors>
     <Description>A particle-based tapestry that weaves your machine's vitals into light.</Description>
   </PropertyGroup>
@@ -22,6 +22,18 @@
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.1" />
     <!-- wasapi loopback capture + fft for audio-reactive mode -->
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <!-- real hardware sensors: gpu load/temp, cpu package temp, vram, fans (MPL-2.0) -->
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
+    <!-- onnx autoencoder anomaly engine (optional; falls back to z-score if model absent) -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.20.1" />
+  </ItemGroup>
+
+  <!-- ship the trained model next to the exe (Update, not Include -> the SDK already
+       globs these files as None; Include would throw a duplicate-item error) -->
+  <ItemGroup>
+    <None Update="model\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
