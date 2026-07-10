@@ -55,7 +55,7 @@ public sealed class OnnxAutoencoderEngine : IAnomalyEngine, IDisposable
                                 .Select(e => e.GetString() ?? "").ToArray();
                 if (root.TryGetProperty("alpha", out var a)) _alpha = a.GetDouble();
                 if (root.TryGetProperty("threshold", out var t)) _baseThreshold = t.GetDouble();
-                if (root.TryGetProperty("input_name", out var n)) _inputName = n.GetString() ?? "input";
+                if (root.TryGetProperty("input_name", out var nm)) _inputName = nm.GetString() ?? "input";
             }
 
             // ---- model ----

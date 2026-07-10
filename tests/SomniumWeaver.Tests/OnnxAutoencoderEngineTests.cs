@@ -14,7 +14,7 @@ public class OnnxAutoencoderEngineTests
     // from the test binary to the repo's model/ folder if the copy isn't where we expect.
     private static string FindModelDir()
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        DirectoryInfo? dir = new(AppContext.BaseDirectory);
         for (int i = 0; i < 8 && dir != null; i++)
         {
             string candidate = Path.Combine(dir.FullName, "model");
