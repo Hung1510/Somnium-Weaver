@@ -14,6 +14,16 @@
     <Description>A particle-based tapestry that weaves your machine's vitals into light.</Description>
   </PropertyGroup>
 
+  <!-- this project lives at the repo root, so its default **/*.cs glob would otherwise pull
+       in the test project's sources (which reference xunit) and fail to compile. keep the
+       tests/ tree out of the app entirely. -->
+  <ItemGroup>
+    <Compile Remove="tests\**" />
+    <None Remove="tests\**" />
+    <EmbeddedResource Remove="tests\**" />
+    <Page Remove="tests\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- 2D rendering. SKElement (not SKGLElement) so we get per-pixel window transparency. -->
     <PackageReference Include="SkiaSharp" Version="2.88.9" />
