@@ -17,10 +17,10 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: restore
-        run: dotnet restore
+        run: dotnet restore SomniumWeaver.sln
 
       - name: build
-        run: dotnet build --no-restore -c Release
+        run: dotnet build SomniumWeaver.sln --no-restore -c Release
 
       - name: test
-        run: dotnet test --no-build -c Release --verbosity normal
+        run: dotnet test SomniumWeaver.sln --no-build -c Release --verbosity normal

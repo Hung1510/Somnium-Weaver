@@ -55,9 +55,9 @@ settings persist to `%AppData%\SomniumWeaver\settings.json`.
 needs the .net 8 sdk (free) and windows.
 
 ```
-git clone https://github.com/Hung1510/SomniumWeaver
-cd SomniumWeaver
-dotnet run
+git clone https://github.com/Hung1510/Somnium-Weaver
+cd Somnium-Weaver
+dotnet run --project SomniumWeaver.csproj
 ```
 
 or open `SomniumWeaver.csproj` in visual studio / rider and hit run.
@@ -65,7 +65,7 @@ or open `SomniumWeaver.csproj` in visual studio / rider and hit run.
 ### build a standalone exe
 
 ```
-dotnet publish -c Release -r win-x64 --self-contained true ^
+dotnet publish SomniumWeaver.csproj -c Release -r win-x64 --self-contained true ^
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 ```
 
@@ -199,11 +199,13 @@ xunit suite (`tests/SomniumWeaver.Tests`):
   (temps high while load is normal) but not an on-manifold sample.
 
 ```
-dotnet test
+dotnet test SomniumWeaver.sln
 ```
 
-runs on windows (the test project references the WPF app, so same TFM). CI runs the same on
-every push / PR via `.github/workflows/ci.yml`.
+runs on windows (the test project references the WPF app, so same TFM). the repo root has
+both a `.sln` and the app `.csproj`, so name the solution explicitly (a bare `dotnet test`
+there hits "more than one project or solution file"). CI runs the same on every push / PR
+via `.github/workflows/ci.yml`.
 
 ## project layout
 

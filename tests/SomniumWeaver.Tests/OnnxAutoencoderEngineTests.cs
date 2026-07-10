@@ -6,9 +6,24 @@ namespace SomniumWeaver.Tests;
 
 public class OnnxAutoencoderEngineTests
 {
-    private static string ModelDir => Path.Combine(AppContext.BaseDirectory, "model");
+    private static readonly string ModelDir = FindModelDir();
     private static string ModelPath => Path.Combine(ModelDir, "anomaly_autoencoder.onnx");
     private static string MetaPath => Path.Combine(ModelDir, "anomaly_meta.json");
+
+    // the csproj copies model/ into the test output, but to be robust in CI we also walk up
+    // from the test binary to the repo's model/ folder if the copy isn't where we expect.
+    private static string FindModelDir()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        for (int i = 0; i < 8 && dir != null; i++)
+        {
+            string candidate = Path.Combine(dir.FullName, "model");
+            if (File.Exists(Path.Combine(candidate, "anomaly_autoencoder.onnx")))
+                return candidate;
+            dir = dir.Parent;
+        }
+        return Path.Combine(AppContext.BaseDirectory, "model"); // let the test surface it if truly missing
+    }
 
     [Fact]
     public void ModelLoadsWhenPresent()
