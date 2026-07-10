@@ -31,10 +31,8 @@ public sealed class OnnxAutoencoderEngine : IAnomalyEngine, IDisposable
     private readonly double _alpha = 0.05;
     private readonly double _baseThreshold = 0.1;
 
-    // per-feature online standardization
-    private readonly double[] _mean;
-    private readonly double[] _var;
-    private readonly bool[] _init;
+    // per-feature online standardization (shared with the z-score engine)
+    private readonly OnlineStandardizer[] _std;
 
     private readonly int _warmup;
     private readonly int _cooldownTicks;
@@ -66,9 +64,8 @@ public sealed class OnnxAutoencoderEngine : IAnomalyEngine, IDisposable
             _inputName = _session.InputMetadata.Keys.FirstOrDefault() ?? _inputName;
 
             int n = _features.Length;
-            _mean = new double[n];
-            _var = new double[n];
-            _init = new bool[n];
+            _std = new OnlineStandardizer[n];
+            for (int i = 0; i < n; i++) _std[i] = new OnlineStandardizer(_alpha);
 
             Available = n > 0;
         }
@@ -76,9 +73,7 @@ public sealed class OnnxAutoencoderEngine : IAnomalyEngine, IDisposable
         {
             LastError = ex.Message;
             Available = false;
-            _mean = Array.Empty<double>();
-            _var = Array.Empty<double>();
-            _init = Array.Empty<bool>();
+            _std = Array.Empty<OnlineStandardizer>();
         }
     }
 
@@ -99,19 +94,8 @@ public sealed class OnnxAutoencoderEngine : IAnomalyEngine, IDisposable
         {
             double std0 = 0.0; // standardized value for feature i (0 = missing / mean)
             if (TryGet(signals, _features[i], out double raw))
-            {
-                if (!_init[i]) { _mean[i] = raw; _var[i] = 0.0; _init[i] = true; }
-                else
-                {
-                    double std = Math.Sqrt(Math.Max(_var[i], 1e-9));
-                    std0 = Math.Clamp((raw - _mean[i]) / (std + 1e-9), -6.0, 6.0);
+                std0 = Math.Clamp(_std[i].Standardize(raw), -6.0, 6.0);
 
-                    double diff = raw - _mean[i];
-                    double incr = _alpha * diff;
-                    _mean[i] += incr;
-                    _var[i] = (1.0 - _alpha) * (_var[i] + diff * incr);
-                }
-            }
             input[0, i] = (float)std0;
             if (Math.Abs(std0) > worstDev) { worstDev = (float)Math.Abs(std0); worst = _features[i]; }
         }
@@ -163,7 +147,7 @@ public sealed class OnnxAutoencoderEngine : IAnomalyEngine, IDisposable
 
     public void Reset()
     {
-        Array.Clear(_mean); Array.Clear(_var); Array.Clear(_init);
+        foreach (var s in _std) s.Reset();
         _samples = 0;
         _cooldown = 0;
     }

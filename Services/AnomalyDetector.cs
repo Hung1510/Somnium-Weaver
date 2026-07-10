@@ -1,11 +1,10 @@
 namespace SomniumWeaver.Services;
 
 /// <summary>
-/// the default, dependency-free anomaly engine. for each signal it keeps an
-/// exponentially-weighted moving average and variance (West's incremental EWMA-variance)
-/// and reports how many standard deviations the latest value sits from the running mean.
-/// the combined score is the max |z| across signals -> "any vital doing something unusual
-/// for THIS machine". it learns continuously, so there are no hardcoded thresholds.
+/// the default, dependency-free anomaly engine. each signal gets its own
+/// <see cref="OnlineStandardizer"/>; the combined score is the max |z| across signals --
+/// "any vital doing something unusual for THIS machine". it learns continuously, so there
+/// are no hardcoded thresholds.
 ///
 /// after a warmup it flags an event when the score crosses the sensitivity (in sigma), then
 /// holds off for a cooldown so a sustained spike doesn't machine-gun bursts.
@@ -14,14 +13,7 @@ public sealed class ZScoreAnomalyEngine : IAnomalyEngine
 {
     public string Name => "z-score";
 
-    private sealed class Stat
-    {
-        public double Mean;
-        public double Var;
-        public bool Init;
-    }
-
-    private readonly Dictionary<string, Stat> _stats = new();
+    private readonly Dictionary<string, OnlineStandardizer> _stats = new();
     private readonly double _alpha;      // learning rate (higher = adapts faster)
     private readonly int _warmup;        // samples before flagging anything
     private readonly int _cooldownTicks; // ticks to stay quiet after an event
@@ -50,27 +42,13 @@ public sealed class ZScoreAnomalyEngine : IAnomalyEngine
 
             if (!_stats.TryGetValue(name, out var s))
             {
-                s = new Stat();
+                s = new OnlineStandardizer(_alpha);
                 _stats[name] = s;
             }
 
-            if (!s.Init)
-            {
-                s.Mean = value;
-                s.Var = 0.0;
-                s.Init = true;
-                continue; // no z on the first observation of a signal
-            }
-
-            // z-score against the CURRENT estimate (predict), then update (learn).
-            double std = Math.Sqrt(Math.Max(s.Var, 1e-9));
-            double z = Math.Abs(value - s.Mean) / (std + 1e-9);
-            if (z > maxZ) { maxZ = (float)z; worst = name; }
-
-            double diff = value - s.Mean;
-            double incr = _alpha * diff;
-            s.Mean += incr;
-            s.Var = (1.0 - _alpha) * (s.Var + diff * incr); // West's incremental EWMA variance
+            // first observation of a signal returns 0 -> harmlessly can't raise the max.
+            float z = (float)Math.Abs(s.Standardize(value));
+            if (z > maxZ) { maxZ = z; worst = name; }
         }
 
         bool warmedUp = _samples >= _warmup;

@@ -1,5 +1,7 @@
 # somnium weaver
 
+[![ci](https://github.com/Hung1510/Somnium-Weaver/actions/workflows/ci.yml/badge.svg)](https://github.com/Hung1510/Somnium-Weaver/actions/workflows/ci.yml)
+
 a living desktop overlay that weaves your machine's vitals into a tapestry of light.
 cpu, ram and network get turned into drifting cyan motes; when your cpu spikes or
 suddenly goes quiet, a burst of gold-and-pink butterflies spirals out across the screen.
@@ -183,6 +185,26 @@ hand or ship a preset.
 - **medium** (default): dots + constellation lines
 - **high**: adds a blurred bloom/glow per mote (prettier, heavier)
 
+## tests
+
+the rendering is visual, but the parts that shouldn't need eyeballs are covered by a real
+xunit suite (`tests/SomniumWeaver.Tests`):
+
+- **`OnlineStandardizer`** — the EWMA standardization math: first-observation behaviour, a
+  constant stream never deviating, a spike producing a large z that then adapts back down.
+- **`ZScoreAnomalyEngine`** — warmup suppression, firing on a spike and naming the signal,
+  cooldown suppressing an immediate refire, NaN signals ignored, reset restoring warmup.
+- **`OnnxAutoencoderEngine`** — the model loads, a missing model falls back gracefully, and
+  the real one: after warming on correlated telemetry it flags a *broken* correlation
+  (temps high while load is normal) but not an on-manifold sample.
+
+```
+dotnet test
+```
+
+runs on windows (the test project references the WPF app, so same TFM). CI runs the same on
+every push / PR via `.github/workflows/ci.yml`.
+
 ## project layout
 
 ```
@@ -196,6 +218,7 @@ Services/DataCollector.cs cpu/ram/net counters + owns the sensor + anomaly sourc
 Services/Metrics.cs       immutable vitals snapshot (perf counters + sensors + anomaly)
 Services/HardwareMonitor.cs  LibreHardwareMonitor wrapper -> gpu/temp/vram/fan sensors
 Services/IAnomalyEngine.cs   pluggable anomaly-engine interface + AnomalyResult
+Services/OnlineStandardizer.cs  online EWMA standardization shared by both engines
 Services/AnomalyDetector.cs  z-score engine (online EWMA, no deps)
 Services/OnnxAutoencoderEngine.cs  autoencoder engine over ONNX Runtime
 Services/AudioAnalyzer.cs wasapi loopback capture + fft -> normalized bands + beats
@@ -204,6 +227,7 @@ Services/WallpaperMode.cs Progman/WorkerW reparenting for behind-the-icons rende
 Services/SettingsService.cs  json persistence
 ml/train_autoencoder.py   trains + exports the anomaly autoencoder (numpy + onnx)
 model/                    shipped anomaly_autoencoder.onnx + anomaly_meta.json
+tests/SomniumWeaver.Tests xunit suite over the engines + standardizer
 docs/DEMO.md              how to record the demo gif
 ```
 
