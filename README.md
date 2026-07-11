@@ -9,7 +9,7 @@ inspired by the shorekeeper from *wuthering waves*.
 
 built with wpf (.net 8) + skiasharp. runs fully local, costs nothing, phones nowhere.
 
-![placeholder — drop a gif here once it's running](docs/preview.gif)
+![somnium weaver demo](docs/preview.gif)
 
 ## why
 
@@ -153,8 +153,10 @@ back to cpu-driven behavior until sound returns. that's expected, not a bug.
 ## demo gif
 
 see [`docs/DEMO.md`](docs/DEMO.md) for a repeatable recipe (shot list + ffmpeg palette
-pipeline). tl;dr: dark wallpaper, quality=high, record ~12s hitting ctrl+alt+b for a burst
-and ctrl+alt+a with music, then two-pass palette gif at 720px / 24fps.
+pipeline). tl;dr: dark wallpaper, quality=high, record ~10-13s hitting ctrl+alt+b for a
+burst and ctrl+alt+a with music, then two-pass palette gif. the shipped `docs/preview.gif`
+is tuned down to 440px / 12fps / 72 colors to stay under ~5MB — bump those back up in the
+pipeline if you re-record and have size budget to spare.
 
 ## how it stays smooth
 
