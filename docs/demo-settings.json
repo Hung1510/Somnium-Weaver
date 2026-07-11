@@ -1,0 +1,20 @@
+{
+  "AlwaysOnTop": true,
+  "ShowDebug": true,
+  "ClickThrough": false,
+  "ConstellationLines": true,
+  "AudioReactive": false,
+  "EnableHardwareSensors": true,
+  "WallpaperMode": false,
+  "AnomalyThreshold": 3.0,
+  "AnomalyEngine": "ZScore",
+  "LogTelemetryCsv": false,
+  "Quality": "High",
+  "MaxParticles": 5000,
+  "EmissionMultiplier": 2.0,
+  "TargetFps": 60,
+  "WindowLeft": 500,
+  "WindowTop": 250,
+  "WindowWidth": 900,
+  "WindowHeight": 600
+}
