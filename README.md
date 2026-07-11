@@ -76,11 +76,11 @@ windows runner and attaches the zip to a github release.
 
 beyond cpu/ram/net (which come from windows performance counters), the app pulls real
 sensors via **[LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)**
-(MPL-2.0) — gpu load/temp, cpu package temp, per-core load, vram, fan rpm. that's what
+(MPL-2.0) - gpu load/temp, cpu package temp, per-core load, vram, fan rpm. that's what
 drives the game-surge emission and the temperature-warmed palette, and it gives the
 anomaly detector a richer signal vector to learn from. everything shows on the HUD.
 
-> **admin caveat:** LibreHardwareMonitor loads a ring0 driver to read some sensors —
+> **admin caveat:** LibreHardwareMonitor loads a ring0 driver to read some sensors -
 > **cpu package temperature in particular needs administrator**. without elevation you'll
 > still get gpu load/temp and ram, but cpu temp comes back blank. run the exe as admin to
 > unlock it (or flip the manifest to `requireAdministrator` to always elevate). the app
@@ -90,11 +90,11 @@ anomaly detector a richer signal vector to learn from. everything shows on the H
 ## wallpaper mode
 
 press **⃞** in the toolbar or **ctrl+alt+w** to drop the tapestry *behind* your desktop
-icons — animated wallpaper instead of a floating overlay. it uses the classic Progman /
+icons - animated wallpaper instead of a floating overlay. it uses the classic Progman /
 `WorkerW` `SetParent` trick (with a Progman fallback for the Windows builds that lay the
 desktop out differently). in this mode it fills the screen on an opaque dark background
 (which also sidesteps a layered-transparency quirk that can black out reparented windows),
-hides the toolbar, and drops always-on-top. toggle it off with the same hotkey — the
+hides the toolbar, and drops always-on-top. toggle it off with the same hotkey - the
 floating overlay comes back exactly where it was. the choice persists across launches.
 
 ## anomaly detection (the butterfly trigger)
@@ -103,11 +103,11 @@ the bursts used to fire on a dumb `cpu > 80%` line. now they fire on a **learned
 two interchangeable engines, both fed the same multi-signal vector (cpu, ram, net, gpu,
 cpu/gpu temp):
 
-- **z-score** (default, no model) — per-signal exponentially-weighted mean + variance;
+- **z-score** (default, no model) - per-signal exponentially-weighted mean + variance;
   score is the max |z| across signals. adapts to *your* machine's normal continuously.
-- **autoencoder** (ONNX, opt-in) — a small autoencoder trained on standardized "normal"
+- **autoencoder** (ONNX, opt-in) - a small autoencoder trained on standardized "normal"
   telemetry. it learns the *shape* of normal cross-signal correlations, so it catches things
-  a per-signal z-score can't — e.g. temperature high while load is normal. reconstruction
+  a per-signal z-score can't - e.g. temperature high while load is normal. reconstruction
   error is the anomaly score. runs on ONNX Runtime; if the model file is missing it silently
   falls back to z-score. the HUD shows which engine is live.
 
@@ -117,17 +117,17 @@ hardware. tune with the "anomaly threshold" slider (sigma; lower = more bursts).
 
 ### training / retraining the model
 
-the shipped `model/anomaly_autoencoder.onnx` is trained on synthetic correlated data — good
+the shipped `model/anomaly_autoencoder.onnx` is trained on synthetic correlated data - good
 enough to demo, but the real win is retraining on *your* machine:
 
 1. enable **"log telemetry to csv"** in settings and use the machine normally for a while.
    it writes `%AppData%\SomniumWeaver\telemetry.csv`.
 2. `python ml/train_autoencoder.py "%AppData%\SomniumWeaver\telemetry.csv"`
    (needs `pip install numpy onnx`). it retrains and overwrites the model + metadata.
-3. restart — the autoencoder now knows *your* normal.
+3. restart - the autoencoder now knows *your* normal.
 
 the whole training pipeline is one dependency-light script (numpy for the net, onnx for
-export — no torch). the natural next step is a deeper model or an isolation forest; the C#
+export - no torch). the natural next step is a deeper model or an isolation forest; the C#
 inference path (`OnnxAutoencoderEngine.cs`) stays the same as long as it's an autoencoder
 that reconstructs the signal vector.
 
@@ -147,7 +147,7 @@ from wasapi: during **total silence** the capture stops sending data, so the mot
 back to cpu-driven behavior until sound returns. that's expected, not a bug.
 
 > credit where due: the wasapi-loopback + fft approach is the same one
-> [spectrumnet](https://github.com/diqezit/SpectrumNet) uses — a good reference if you
+> [spectrumnet](https://github.com/diqezit/SpectrumNet) uses - a good reference if you
 > want to go deeper on the capture side.
 
 ## demo gif
@@ -155,7 +155,7 @@ back to cpu-driven behavior until sound returns. that's expected, not a bug.
 see [`docs/DEMO.md`](docs/DEMO.md) for a repeatable recipe (shot list + ffmpeg palette
 pipeline). tl;dr: dark wallpaper, quality=high, record ~10-13s hitting ctrl+alt+b for a
 burst and ctrl+alt+a with music, then two-pass palette gif. the shipped `docs/preview.gif`
-is tuned down to 440px / 12fps / 72 colors to stay under ~5MB — bump those back up in the
+is tuned down to 440px / 12fps / 72 colors to stay under ~5MB - bump those back up in the
 pipeline if you re-record and have size budget to spare.
 
 ## how it stays smooth
@@ -171,7 +171,7 @@ pipeline if you re-record and have size budget to spare.
 
 ## settings
 
-hit the **⚙** button or **ctrl+alt+o** for an in-app panel — quality, HUD, constellation
+hit the **⚙** button or **ctrl+alt+o** for an in-app panel - quality, HUD, constellation
 lines, audio mode, always-on-top, emission rate, max particles and target fps. changes
 apply live and save when you close it. (opening the panel drops click-through so you can
 actually use it.)
@@ -192,11 +192,11 @@ hand or ship a preset.
 the rendering is visual, but the parts that shouldn't need eyeballs are covered by a real
 xunit suite (`tests/SomniumWeaver.Tests`):
 
-- **`OnlineStandardizer`** — the EWMA standardization math: first-observation behaviour, a
+- **`OnlineStandardizer`** - the EWMA standardization math: first-observation behaviour, a
   constant stream never deviating, a spike producing a large z that then adapts back down.
-- **`ZScoreAnomalyEngine`** — warmup suppression, firing on a spike and naming the signal,
+- **`ZScoreAnomalyEngine`** - warmup suppression, firing on a spike and naming the signal,
   cooldown suppressing an immediate refire, NaN signals ignored, reset restoring warmup.
-- **`OnnxAutoencoderEngine`** — the model loads, a missing model falls back gracefully, and
+- **`OnnxAutoencoderEngine`** - the model loads, a missing model falls back gracefully, and
   the real one: after warming on correlated telemetry it flags a *broken* correlation
   (temps high while load is normal) but not an on-manifold sample.
 
@@ -239,17 +239,17 @@ docs/DEMO.md              how to record the demo gif
 
 these are the fun ones if you want to fork and contribute:
 
-- **spatial-grid for constellation lines** — the link pass is naive O(n²), gated at 600
+- **spatial-grid for constellation lines** - the link pass is naive O(n²), gated at 600
   motes. a uniform grid would let lines run at the full 5000 cap. (`ParticleSystem.DrawConnections`)
-- **multi-monitor wallpaper** — wallpaper mode fills the primary WorkerW; spanning all
+- **multi-monitor wallpaper** - wallpaper mode fills the primary WorkerW; spanning all
   monitors (or per-monitor instances) would be a nice extension.
-- **deeper anomaly model** — the autoencoder is a 6-4-2-4-6 toy. a bigger net, an isolation
+- **deeper anomaly model** - the autoencoder is a 6-4-2-4-6 toy. a bigger net, an isolation
   forest, or a temporal model (LSTM/temporal-conv over a window) would sharpen it.
-- **network + vram renderers** — both are collected and shown on the HUD but not yet drawn.
-- **spectrum renderer for audio** — audio-reactive mode ships, but only drives the mote
+- **network + vram renderers** - both are collected and shown on the HUD but not yet drawn.
+- **spectrum renderer for audio** - audio-reactive mode ships, but only drives the mote
   field. a proper per-bin bar/wave renderer off the same fft would be a great addition.
-- **theme packs** — swap the palette for other characters/aesthetics via json.
-- **taskbar tray icon** — minimize to tray, show/hide from there.
+- **theme packs** - swap the palette for other characters/aesthetics via json.
+- **taskbar tray icon** - minimize to tray, show/hide from there.
 
 ## credits
 
@@ -258,6 +258,6 @@ these are the fun ones if you want to fork and contribute:
 - audio capture + fft: [NAudio](https://github.com/naudio/NAudio)
 - anomaly inference: [ONNX Runtime](https://github.com/microsoft/onnxruntime)
 - prior art / patterns: [spectrumnet](https://github.com/diqezit/SpectrumNet) (object pooling, overlay mode, hotkeys, fps limiting)
-- vibe: shorekeeper, *wuthering waves* (kuro games). no game assets are shipped here — this is pure procedural light.
+- vibe: shorekeeper, *wuthering waves* (kuro games). no game assets are shipped here - this is pure procedural light.
 
 MIT licensed.
