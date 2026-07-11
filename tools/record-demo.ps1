@@ -1,11 +1,11 @@
-<#
+﻿<#
   record-demo.ps1
   Fires Somnium Weaver's global hotkeys on the DEMO.md shot-list schedule so
-  every recording take is timed identically. Start OBS (or ScreenToGif) FIRST,
-  then run this script, then stop recording ~1s after it finishes.
+  every recording take is timed identically. Start OBS (or ScreenToGif/N-Studio)
+  FIRST, then run this script, then stop recording ~1s after it finishes.
 
   Cue schedule (matches docs/DEMO.md):
-    t=0    Ctrl+Alt+D   HUD on               (calm motes begin)
+    t=0    (HUD already on via settings.json - ShowDebug: true)
     t=3    Ctrl+Alt+B   manual burst
     t=5    Ctrl+Alt+A   audio-reactive on    <-- start your music track here too
     t=9    Ctrl+Alt+S   click-through toggle (drag a window "through" it now)
@@ -47,8 +47,7 @@ Write-Host "Recording cue sequence starts in:"
 3..1 | ForEach-Object { Write-Host "  $_..."; Start-Sleep -Seconds 1 }
 
 $sw = [Diagnostics.Stopwatch]::StartNew()
-Write-Host "t=0   GO — start your recorder's clock reference now"
-Send-CtrlAlt $VK_D "D  (HUD on)"
+Write-Host "t=0   GO - start your recorders clock reference now"
 
 while ($sw.Elapsed.TotalSeconds -lt 3) { Start-Sleep -Milliseconds 50 }
 Write-Host "t=3"
@@ -63,4 +62,4 @@ Write-Host "t=9   <-- drag a window across the app now"
 Send-CtrlAlt $VK_S "S  (click-through toggle)"
 
 while ($sw.Elapsed.TotalSeconds -lt 12) { Start-Sleep -Milliseconds 50 }
-Write-Host "t=12  DONE — stop the recorder in ~1s"
+Write-Host "t=12  DONE - stop the recorder in ~1s"
